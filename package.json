@@ -1,0 +1,26 @@
+{
+  "name": "nodebb-plugin-chatGPTmoderator",
+  "version": "0.0.1",
+  "description": "A NodeBB plugin to moderate posts using openAI",
+  "main": "library.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/razibal/nodebb-plugin-chatGPTmoderator"
+  },
+  "keywords": [
+    "nodebb",
+    "plugin",
+    "npm"
+  ],
+  "author": {},
+  "license": "MIT",
+  "bugs": {},
+  "readmeFilename": "README.md",
+  "nbbpm": {
+    "compatibility": "^1.19.7"
+  },
+  "dependencies": {
+    "openai": "^3.2.1",
+    "striptags": "^3.2.0"
+  }
+}

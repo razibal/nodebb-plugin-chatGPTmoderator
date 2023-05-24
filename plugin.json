@@ -1,0 +1,18 @@
+{
+	"id": "nodebb-plugin-chatGPTmoderator",
+	"library": "./library.js",
+    "staticDirs": {
+        "public": "public"
+    },
+	"hooks": [
+    { "hook": "static:app.load", "method": "init"},
+    { "hook": "filter:admin.header.build", "method": "admin.menu"},
+		{ "hook": "action:settings.set", "method": "updateSettings" },
+		{ "hook": "action:post.save", "method": "moderatePost" },
+		{ "hook": "action:post.edit", "method": "moderatePost" }
+	],
+    "templates": "./public/templates",
+    "acpScripts": [
+        "public/admin.js"
+    ]
+}

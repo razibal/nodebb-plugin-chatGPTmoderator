@@ -1,0 +1,10 @@
+*.css
+!less/bootstrap-flipped.css
+npm-debug.log
+package-lock.json
+sftp-config.json
+*.sublime-project
+*.sublime-workspace
+.idea
+.vscode
+node_modules/
