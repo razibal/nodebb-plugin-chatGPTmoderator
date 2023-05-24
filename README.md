@@ -7,7 +7,7 @@ Clone this repo and install from the nodeBB root folder
 ```bash
 npm install [/path/to/nodebb-plugin-chatGPTmoderator]
 ```
-![screenshot-2023 05 14-10_12_45](https://github.com/razb/nodebb-plugin-chatGPT-moderator/assets/505171/56eff8ba-15e8-4ca5-b2c9-dd5b71c93d71)
+![screenshot-2023 05 14-10_12_45](https://github.com/razibal/nodebb-plugin-chatGPTmoderator/blob/main/screenshot-2023.05.14-10_12_45.png?raw=true)
 # Setup
 
 
