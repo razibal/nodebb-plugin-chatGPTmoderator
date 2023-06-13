@@ -91,7 +91,8 @@ plugin.updateSettings = async function(data) {
 plugin.moderatePost = async function(postData) {
     try {
         let uid = postData.post.uid
-        if (!token || !adminId || defaultBehaviors.length == 0 || uid == adminId) {
+        let isAdminOrGlobalMod = await user.isAdminOrGlobalMod(uid)
+        if (!token || !adminId || defaultBehaviors.length == 0 || uid == adminId || isAdminOrGlobalMod) {
             return;
         } else if (bypassOnReputation) {
             userReputation = await user.getUserField(uid, 'reputation')
