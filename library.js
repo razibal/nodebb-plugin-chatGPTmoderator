@@ -197,7 +197,7 @@ plugin.moderatePost = async function(postData) {
                     uid: adminId,
                     toPid: parseInt(pid),
                     tid: tid,
-                    content: '<p><i>AI Generated Response</i></p>' + moderation.answer
+                    content: '<p><i>Bot Generated Response</i></p>' + moderation.answer
                 };
                 const created = await api.topics.reply(replyCaller, replyData);
             }
@@ -316,7 +316,8 @@ async function moderate(moderationContent) {
         "content": `Detect if the post is intended to be a question. If it is a question, you  must answer the question and include the boolean property "question" in RFC8259 compliant JSON. Include a propery "answer" RFC8259 compliant JSON with the answer ONLY if you answered the question`
     })
     const completion = await openai.createChatCompletion({
-        model: "gpt-3.5-turbo",
+        //model: "gpt-3.5-turbo",
+        model: "gpt-4",
         messages: messages,
         temperature: 0.4,
         max_tokens: 2000
