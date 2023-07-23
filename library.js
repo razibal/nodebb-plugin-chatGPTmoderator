@@ -1,4 +1,5 @@
 'use strict';
+const fs = require('fs');
 const {
     Configuration,
     OpenAIApi
@@ -10,6 +11,8 @@ const defaultProperties = ["question", "answer", "passed", "feedback",
     ["code of conduct", "conduct", "code", "compliance"],
     ["context and relevance", "context", "relevance", "relevant"]
 ]
+const excludeCids = [105]
+const excludeMainPids = [98, 99]
 
 const winston = require.main.require('winston');
 const meta = require.main.require('./src/meta');
@@ -92,7 +95,7 @@ plugin.moderatePost = async function(postData) {
     try {
         let uid = postData.post.uid
         let isAdminOrGlobalMod = await user.isAdminOrGlobalMod(uid)
-        if (!token || !adminId || defaultBehaviors.length == 0 || uid == adminId || isAdminOrGlobalMod) {
+        if (!token || !adminId || defaultBehaviors.length == 0 || uid == adminId || isAdminOrGlobalMod || excludeCids.indexOf(parseInt(postData.post.cid)) >= 0 || (excludeMainPids.indexOf(parseInt(postData.post.cid)) >= 0 && (postData.post.isMain ||  postData.post.topic && postData.post.topic.isMainPost) ) ) {
             return;
         } else if (bypassOnReputation) {
             userReputation = await user.getUserField(uid, 'reputation')
