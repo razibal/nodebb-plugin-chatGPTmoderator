@@ -11,8 +11,9 @@ const defaultProperties = ["question", "answer", "passed", "feedback",
     ["code of conduct", "conduct", "code", "compliance"],
     ["context and relevance", "context", "relevance", "relevant"]
 ]
-const excludeCids = [105]
-const excludeMainPids = [98, 99]
+let excludeCids = []
+let environments = ['production']
+let excludeMainPids = []
 
 const winston = require.main.require('winston');
 const meta = require.main.require('./src/meta');
@@ -28,9 +29,16 @@ const posts = require.main.require('./src/posts');
 const topics = require.main.require('./src/topics');
 const notifications = require.main.require('./src/notifications');
 const routeHelpers = require.main.require('./src/routes/helpers');
+const categories = require.main.require('./src/categories');
+const body = [{
+    ddsource: "plugin",
+    hostname: "forum",
+    service: "moderator",
+}]
+
 
 const plugin = {};
-let token, action, notify, configuration, openai, behaviors, checkForBehaviors, standardProperties, codeOfConduct, adminId, bypassOnReputation, userReputation, addContext = false,
+let token, botmention, action, notify, configuration, openai, behaviors, checkForBehaviors, standardProperties, codeOfConduct, adminId, bypassOnReputation, userReputation, addContext = false,
     debug = false,
     reply = false;
 
@@ -92,10 +100,21 @@ plugin.updateSettings = async function(data) {
 }
 
 plugin.moderatePost = async function(postData) {
+    botmention = false;
+    let uid, pid, tid, topictitle, catdata, UserName;
     try {
-        let uid = postData.post.uid
+        uid = postData.post.uid
+        try {
+        let cid = postData.post.cid
+	      let ciddata = await categories.getCategoryFields(cid, ['name', 'parentCid'])
+        let parentCid = await categories.getCategoryFields(ciddata.parentCid, ['name']);
+        catdata = { name: ciddata.name, parent: parentCid.name }
+        }
+        catch(err) {
+        console.log(err);
+        }
         let isAdminOrGlobalMod = await user.isAdminOrGlobalMod(uid)
-        if (!token || !adminId || defaultBehaviors.length == 0 || uid == adminId || isAdminOrGlobalMod || excludeCids.indexOf(parseInt(postData.post.cid)) >= 0 || (excludeMainPids.indexOf(parseInt(postData.post.cid)) >= 0 && (postData.post.isMain ||  postData.post.topic && postData.post.topic.isMainPost) ) ) {
+        if ( !environments.some(x => x == process.env.NODE_ENV) || token || !adminId || defaultBehaviors.length == 0 || uid == adminId || isAdminOrGlobalMod || excludeCids.indexOf(parseInt(postData.post.cid)) >= 0 || (excludeMainPids.indexOf(parseInt(postData.post.cid)) >= 0 && (postData.post.isMain ||  postData.post.topic && postData.post.topic.isMainPost) ) ) {
             return;
         } else if (bypassOnReputation) {
             userReputation = await user.getUserField(uid, 'reputation')
@@ -106,15 +125,21 @@ plugin.moderatePost = async function(postData) {
                 }
             }
         }
+        let adminUser =  await user.getUserField(adminId, 'username')
+        UserName =  await user.getUserField(uid, 'username')
         let content = postData.post.content
-        let pid = postData.post.pid
-        let tid = postData.post.tid
+        if ( adminUser ) {
+        botmention =  content.includes(`@${adminUser}`)
+        }
+        pid = postData.post.pid
+        tid = postData.post.tid
         content = striptags(content.replace(/\n/g, '').replace(/<img .*?>/gi, '').replace(/<table .*?\/table>/gi, '').substr(0, 5000), [], '\n').replace(/\n\n+/g, '\n').replace(/\@/g, '').replace(/\!/g, '')
-        if (debug) console.log(`Moderating post: ${postData.post.pid}`)
+        console.log(`Moderating post: ${postData.post.pid}`)
         let mainPid, pids = [],
             contextPosts = [],
             moderationContent = {};
-        moderationContent.title = await topics.getTopicField(tid, 'title');
+            topictitle = await topics.getTopicField(tid, 'title');
+        moderationContent.title = topictitle
         moderationContent.content = content
         if (addContext) {
             if (!postData.post?.topic?.isMain) {
@@ -206,7 +231,6 @@ plugin.moderatePost = async function(postData) {
             }
         }
     } catch (err) {
-        console.log(err);
         winston.error(`[nodebb-plugin-chatGPmoderator] ${err?.message || err}`);
     }
     return postData
@@ -296,7 +320,9 @@ async function moderate(moderationContent) {
             "role": "user",
             "content": userContent
         },
-        {
+    ]
+    if (reply && botmention) {
+    messages.push({
             "role": "user",
             "content": `Your response must be in strict  RFC8259 compliant JSON and follow the following object structure:
 							{
@@ -312,15 +338,35 @@ async function moderate(moderationContent) {
 								"feedback": "Friendly feedback related to the contents of the post"
 							}
             `
+        })
+        } else {
+    messages.push({
+            "role": "user",
+            "content": `Your response must be in strict  RFC8259 compliant JSON and follow the following object structure:
+							{
+								"spam": Boolean,
+								"profanity": Boolean,
+								"racism": Boolean,
+								"sexism": Boolean,
+								"homophobia": Boolean,
+								"aggressive_language": Boolean,
+								"code_of_conduct": Boolean,
+								"feedback": "Friendly feedback related to the contents of the post"
+							}
+            `
+        })
         }
-    ]
+    if (reply && botmention) messages.push({
+        "role": "user",
+        "content": `Detect if the post is intended to be a question. If it is a question, you  must answer the question and include the boolean property "question" in RFC8259 compliant JSON. Include a property "answer" RFC8259 compliant JSON with the answer ONLY if you answered the question`
+    })
     if (reply) messages.push({
         "role": "user",
-        "content": `Detect if the post is intended to be a question. If it is a question, you  must answer the question and include the boolean property "question" in RFC8259 compliant JSON. Include a propery "answer" RFC8259 compliant JSON with the answer ONLY if you answered the question`
+        "content": `Detect if the post is consistent with the context of the original topic and is relevant to the discussion. You must include the boolean property "context_and_relevance" in RFC8259 compliant JSON. The value of the "context_and_relevance" property should be true if the post is consistent with context of the original topic and is relevant to the discussion or false if it is not`
     })
     const completion = await openai.createChatCompletion({
         //model: "gpt-3.5-turbo",
-        model: "gpt-4",
+        model: "gpt-4o-mini",
         messages: messages,
         temperature: 0.4,
         max_tokens: 2000
@@ -364,7 +410,9 @@ async function moderate(moderationContent) {
         let positives = ['context_and_relevance', 'code_of_conduct']
         if (json) {
             Object.keys(json).map(x => {
-                if (!x == 'feedback' && !x == 'question' && !x == 'answer') {
+                let allkeys = [ "spam", "profanity", "racism", "sexism", "homophobia", "aggressive_language", "code_of_conduct", "feedback"]
+                if ( allkeys.some( k => k == x)) {
+                if (x != 'feedback' && x != 'question' && x != 'answer') {
                     if (positives.indexOf(x) >= 0) {
                         if (!json[x]) moderation.passed = false;
                     } else {
@@ -373,6 +421,7 @@ async function moderate(moderationContent) {
                 } else if (x == 'feedback') {
                     moderation.feedback = json[x]
                     delete json[x]
+                }
                 }
             })
         }
